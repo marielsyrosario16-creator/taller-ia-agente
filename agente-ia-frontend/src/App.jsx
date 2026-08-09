@@ -11,8 +11,12 @@ function App() {
 
   const [tablero, setTablero] = useState(estadoInicial);
   const [seleccionada, setSeleccionada] = useState(null); 
+  const [mensajeGanador, setMensajeGanador] = useState(null); // Estado para el aviso de victoria
 
   const manejarClic = (fila, col) => {
+    // Si ya hay un ganador, bloqueamos el tablero para que no se pueda seguir jugando
+    if (mensajeGanador) return;
+
     const casilla = tablero[fila][col];
 
     if (casilla === 'B') {
@@ -27,12 +31,7 @@ function App() {
         return;
       }
 
-      const colNegra = tablero[fila].indexOf('N');
-      if (col <= colNegra) {
-        alert("¡La ficha desplazada no puede saltar por encima de la del jugador oponente!");
-        return;
-      }
-
+      // Validamos que la blanca no salte a una casilla ocupada incorrectamente
       const nuevoTablero = tablero.map(f => [...f]);
       nuevoTablero[seleccionada.fila][seleccionada.col] = 0; 
       nuevoTablero[fila][col] = 'B'; 
@@ -50,27 +49,45 @@ function App() {
       })
       .then(respuesta => respuesta.json())
       .then(datos => {
-        // Imprimimos en la consola exactamente qué nos respondió el servidor
-        console.log("Respuesta del servidor:", datos); 
-
-        // PARACAÍDAS
         if (datos.tableroNuevo) {
             setTimeout(() => {
                 setTablero(datos.tableroNuevo);
+                
+                // Si el servidor detectó que alguien ganó, lo mostramos en pantalla
+                if (datos.ganador) {
+                    setMensajeGanador(datos.ganador);
+                }
             }, 500); 
         } else {
-            alert("El servidor no devolvió la jugada. Revisa la consola (F12) para ver el error real.");
+            alert("El servidor no devolvió la jugada.");
         }
       })
       .catch(error => {
         console.error("Error al conectar con el servidor:", error);
       });
-    } // <-- Aquí faltaba esta llave para cerrar el if
-  }; // <-- Y aquí faltaba esta para cerrar la función manejarClic
+    } 
+  }; 
+
+  const reiniciarJuego = () => {
+    setTablero(estadoInicial);
+    setSeleccionada(null);
+    setMensajeGanador(null);
+  };
 
   return (
     <div className="juego-contenedor">
       <h1>Taller de IA - Agente vs Usuario</h1>
+      
+      {/* Banner de victoria dinámico */}
+      {mensajeGanador && (
+        <div className="banner-ganador" style={{ background: '#22c55e', color: 'white', padding: '15px', borderRadius: '8px', marginBottom: '20px', textAlign: 'center', fontWeight: 'bold' }}>
+          <h2>{mensajeGanador}</h2>
+          <button onClick={reiniciarJuego} style={{ marginTop: '10px', padding: '8px 16px', background: 'white', color: '#16a34a', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+            Jugar de nuevo
+          </button>
+        </div>
+      )}
+
       <div className="tablero">
         {tablero.map((fila, indiceFila) => (
           fila.map((casilla, indiceColumna) => (
