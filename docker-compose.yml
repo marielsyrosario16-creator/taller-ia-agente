@@ -1,0 +1,50 @@
+version: "3.8"
+
+# ==============================================================================
+# ORQUESTACIÓN CON DOCKER COMPOSE - AGENTE IA (TALLER)
+# ==============================================================================
+# Nota: Se han configurado puertos diferentes (8081 y 3001) para asegurar 
+# que NO se generen conflictos con tu stack principal (que usa 8080 y 3000).
+# ==============================================================================
+
+services:
+  # ----------------------------------------------------------------------------
+  # 1. FRONTEND: Servidor web estático (React/Vite con Nginx)
+  # ----------------------------------------------------------------------------
+  frontend_agente:
+    build:
+      context: ./agente-ia-frontend
+      dockerfile: Dockerfile
+      args:
+        # IMPORTANTE: Reemplaza "TU_IP_VPS" con la IP pública real de tu servidor.
+        # Si usas un dominio, coloca el dominio completo, ej: "http://mi-dominio.com:3001"
+        VITE_API_URL: "http://TU_IP_VPS:3001"
+    container_name: frontend_agente_ia
+    restart: always
+    ports:
+      # Puerto 8081 expuesto para acceso desde el navegador (evita choque con 8080)
+      - "8081:80" 
+    depends_on:
+      - backend_agente
+    networks:
+      - red-agente-ia
+
+  # ----------------------------------------------------------------------------
+  # 2. BACKEND: API REST Node.js (Servidor del Agente IA)
+  # ----------------------------------------------------------------------------
+  backend_agente:
+    build:
+      context: ./agente-ia-backend
+      dockerfile: Dockerfile
+    container_name: backend_agente_ia
+    restart: unless-stopped
+    ports:
+      # Puerto 3001 expuesto para la API (evita choque con 3000)
+      - "3001:3000"
+    networks:
+      - red-agente-ia
+
+networks:
+  red-agente-ia:
+    driver: bridge
+    name: red-agente-ia

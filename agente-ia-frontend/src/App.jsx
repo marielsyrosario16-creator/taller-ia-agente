@@ -18,7 +18,7 @@ function App() {
 
   // Función para el primer turno de la IA
   const turnoInicialIA = () => {
-    fetch('http://localhost:3000/jugar', {
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/jugar`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -77,7 +77,7 @@ function App() {
       setSeleccionada(null); 
 
       // CONEXIÓN AL BACKEND (Turnos regulares)
-      fetch('http://localhost:3000/jugar', {
+      fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/jugar`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
