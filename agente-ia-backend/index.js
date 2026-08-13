@@ -7,7 +7,7 @@ const PORT = 3000;
 app.use(cors()); 
 app.use(express.json()); 
 
-// Genera los movimientos permitidos avanzar o retroceder a casillas vacías sin saltar al oponente
+// Genera los movimientos permitidos (avanzar o retroceder a casillas vacías sin saltar al oponente)
 function obtenerMovimientosValidos(tablero, esNegra) {
     let movimientos = [];
 
@@ -34,7 +34,7 @@ function obtenerMovimientosValidos(tablero, esNegra) {
     return movimientos;
 }
 
-// FUNCIÓN HEURÍSTICA
+// FUNCIÓN HEURÍSTICA: Aquí aplicamos tu lógica de persecución y bloqueo
 function evaluarTablero(tablero) {
     let puntajeTotal = 0;
 
@@ -43,26 +43,31 @@ function evaluarTablero(tablero) {
         let colBlanca = tablero[i].indexOf('B');
         let espaciosVacios = colBlanca - colNegra - 1;
 
+        // 1. Si los espacios vacíos son 0, la ficha negra está pegada a la blanca (¡Bloqueo total!)
         if (espaciosVacios === 0) {
-            puntajeTotal += 100; 
+            puntajeTotal += 100; // Gran recompensa por presionar cara a cara
         } else {
+            // 2. Entre menos espacios queden, mejor para la negra (impulsa a avanzar y cerrar el cerco)
             puntajeTotal -= espaciosVacios * 10;
         }
+
+        // 3. Premiamos que la negra tenga una columna más alta (avanzando hacia la derecha)
         puntajeTotal += colNegra * 5;
     }
 
     return puntajeTotal;
 }
 
-// Algoritmo Minimax guiado por la heurística y optimizado con Poda Alfa-Beta
-function minimax(tablero, profundidad, esMaximizador, alpha = -Infinity, beta = Infinity) {
-    // Profundidad 5 para garantizar la estrategia ganadora absoluta
-    if (profundidad === 5) {
+// Algoritmo Minimax guiado por tu heurística
+function minimax(tablero, profundidad, esMaximizador) {
+    // Si llegamos al límite de profundidad o el juego se traba, evaluamos el tablero
+    if (profundidad === 3) {
         return evaluarTablero(tablero);
     }
 
     let movimientos = obtenerMovimientosValidos(tablero, esMaximizador);
 
+    // Si el jugador en turno no tiene movimientos, pierde
     if (movimientos.length === 0) {
         return esMaximizador ? -9999 : 9999;
     }
@@ -74,12 +79,8 @@ function minimax(tablero, profundidad, esMaximizador, alpha = -Infinity, beta = 
             copia[m.fila][m.origen] = 0;
             copia[m.fila][m.destino] = 'N';
 
-            let valor = minimax(copia, profundidad + 1, false, alpha, beta);
+            let valor = minimax(copia, profundidad + 1, false);
             mejorValor = Math.max(mejorValor, valor);
-            
-            // Poda Alfa-Beta
-            alpha = Math.max(alpha, mejorValor);
-            if (beta <= alpha) break; // Cortamos esta rama, no vale la pena seguir calculando
         }
         return mejorValor;
     } else {
@@ -89,44 +90,37 @@ function minimax(tablero, profundidad, esMaximizador, alpha = -Infinity, beta = 
             copia[m.fila][m.origen] = 0;
             copia[m.fila][m.destino] = 'B';
 
-            let valor = minimax(copia, profundidad + 1, true, alpha, beta);
+            let valor = minimax(copia, profundidad + 1, true);
             mejorValor = Math.min(mejorValor, valor);
-            
-            // Poda Alfa-Beta
-            beta = Math.min(beta, mejorValor);
-            if (beta <= alpha) break; // Cortamos esta rama
         }
         return mejorValor;
     }
 }
 
-// Turno de la IA adaptado para iniciar la Poda Alfa-Beta
+// Turno de la IA con mentalidad cazadora
 function jugarTurnoIA(tablero) {
     let movimientos = obtenerMovimientosValidos(tablero, true);
     if (movimientos.length === 0) return tablero;
 
     let mejorMovimiento = movimientos[0];
     let mejorValor = -Infinity;
-    
-    // Variables iniciales para la poda
-    let alpha = -Infinity;
-    let beta = Infinity;
 
     for (let m of movimientos) {
         let copia = tablero.map(f => [...f]);
         copia[m.fila][m.origen] = 0;
         copia[m.fila][m.destino] = 'N';
 
-        let valor = minimax(copia, 0, false, alpha, beta);
+        // Evaluamos este movimiento con Minimax
+        let valor = minimax(copia, 0, false);
 
+        // Si este movimiento nos deja en un mejor escenario de presión, lo elegimos
         if (valor > mejorValor) {
             mejorValor = valor;
             mejorMovimiento = m;
         }
-        // Actualizamos el alpha en la raíz
-        alpha = Math.max(alpha, mejorValor);
     }
 
+    // Ejecutamos la jugada elegida
     tablero[mejorMovimiento.fila][mejorMovimiento.origen] = 0;
     tablero[mejorMovimiento.fila][mejorMovimiento.destino] = 'N';
 
@@ -137,28 +131,18 @@ app.post('/jugar', (req, res) => {
     const tablero = req.body.tablero;
     if (!tablero) return res.json({ error: "Falta el tablero." });
 
-    // 1. Evaluamos si el movimiento que acaba de hacer el usuario dejó a la IA sin opciones
-    const movimientosIA = obtenerMovimientosValidos(tablero, true);
-    
-    if (movimientosIA.length === 0) {
-        // El usuario ganó, devolvemos el mensaje de victoria inmediatamente sin que la IA juegue
-        return res.json({ 
-            tableroNuevo: tablero, 
-            ganador: "Felicidades... ¡Venciste al agente!" 
-        });
-    }
-
-    // 2. Si la IA aún tiene movimientos, ejecuta su turno
+    // 1. Ejecutamos el turno de la IA
     const tableroActualizado = jugarTurnoIA(tablero);
 
-    // 3. Verificamos si la IA, con su nuevo movimiento, acorraló al usuario
+    // 2. Verificamos si al usuario (fichas blancas) le quedan movimientos válidos
     const movimientosUsuario = obtenerMovimientosValidos(tableroActualizado, false);
-    let ganador = null;
     
+    let ganador = null;
     if (movimientosUsuario.length === 0) {
-        ganador = "Te ganó el agente XD";
+        ganador = "¡TE GANÓ EL AGENTE XD!";
     }
 
+    // Devolvemos el tablero y el estado de la partida
     res.json({ 
         tableroNuevo: tableroActualizado, 
         ganador: ganador 
