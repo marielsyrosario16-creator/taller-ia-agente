@@ -18,7 +18,7 @@ services:
       args:
         # IMPORTANTE: Reemplaza "TU_IP_VPS" con la IP pública real de tu servidor.
         # Si usas un dominio, coloca el dominio completo, ej: "http://mi-dominio.com:3001"
-        VITE_API_URL: "http://TU_IP_VPS:3001"
+        VITE_API_URL: "http://15.235.37.152:3001"
     container_name: frontend_agente_ia
     restart: always
     ports:
